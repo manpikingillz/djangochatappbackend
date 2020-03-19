@@ -9,9 +9,10 @@
     <input id="chat-message-input" type="text" size="100"><br>
     <input id="chat-message-submit" type="button" value="Send">
     {{ room_name|json_script:"room-name" }}
+    
     <script>
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
-
+        var username = 'admin';
         const chatSocket = new WebSocket(
             'ws://'
             + window.location.host
@@ -19,11 +20,25 @@
             + roomName
             + '/'
         );
+        chatSocket.onopen = function(e) {
+            chatSocket.send(JSON.stringify({'command': 'fetch_messages'}))
+        };
 
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
-            document.querySelector('#chat-log').value += (data.message + '\n');
+            console.log("the messages are here: ", data)
+            if(data['command'] === 'messages'){
+                const chatMessages = data['chat_messages'];
+                for(let i=0; i < chatMessages.length; i++){
+                    console.log(chatMessages[i])
+                    document.querySelector('#chat-log').value += (chatMessages[i].author+': '+chatMessages[i].content + '\n');
+                }
+            } else if (data['command'] === 'new_message'){
+                const chatMessage = data['chat_message'];
+                document.querySelector('#chat-log').value += (chatMessage.author+': '+chatMessage.content + '\n');
+            }
         };
+
 
         chatSocket.onclose = function(e) {
             console.error('Chat socket closed unexpectedly');
@@ -40,7 +55,9 @@
             const messageInputDom = document.querySelector('#chat-message-input');
             const message = messageInputDom.value;
             chatSocket.send(JSON.stringify({
-                'message': message
+                'command': 'new_message',
+                'message': message,
+                'from': 'admin'
             }));
             messageInputDom.value = '';
         };
